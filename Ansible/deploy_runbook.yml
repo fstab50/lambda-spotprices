@@ -1,0 +1,10 @@
+---
+- hosts: localhost
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: /usr/bin/python2.7
+  vars_files:
+    - "deploy_configuration.yml"
+  tasks:
+    - include: cloudformation.yml env="{{item}}" info="{{ item.name.split('_') }}"
+      with_items: "{{ deployment_configuration[lookup('env', 'TARGET_ENV')] }}"

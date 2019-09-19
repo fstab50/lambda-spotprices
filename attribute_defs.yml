@@ -1,0 +1,55 @@
+AttributeDefinitions:
+  -
+    AttributeName: "sku"
+    AttributeType: "S"
+  -
+    AttributeName: "publicationDate"
+    AttributeType: "S"
+  -
+    AttributeName: "instanceType"
+    AttributeType: "S"
+  -
+    AttributeName: "CostPerHour"
+    AttributeType: "S"
+  -
+    AttributeName: "instanceFamily"
+    AttributeType: "S"
+  -
+    AttributeName: "clockSpeed"
+    AttributeType: "S"
+  -
+    AttributeName: "ecu"
+    AttributeType: "S"
+  -
+    AttributeName: "memory"
+    AttributeType: "S"
+  -
+    AttributeName: "CurrentGeneration"
+    AttributeType: "S"
+  -
+    AttributeName: "enhancedNetworkingSupported"
+    AttributeType: "S"
+  -
+    AttributeName: "location"
+    AttributeType: "S"
+  -
+    AttributeName: "operatingSystem"
+    AttributeType: "S"
+  -
+    AttributeName: "physicalProcessor"
+    AttributeType: "S"
+  -
+    AttributeName: "processorArchitecture"
+    AttributeType: "S"
+  -
+    AttributeName: "serviceCode"
+    AttributeType: "S"
+  -
+    AttributeName: "storage"
+    AttributeType: "S"
+  -
+    AttributeName: "vcpu"
+    AttributeType: "S"
+  -
+    AttributeName: "attributes"
+    AttributeType: "S"

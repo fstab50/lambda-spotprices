@@ -1,0 +1,73 @@
+
+- name: gcreds creates temporary credentials
+  shell: |
+    if [ -z $(aws configure get "Ansible-{{ lookup('env', 'BUILD_TAG') }}"-"{{ info.0 }}".aws_access_key_id) ]; then
+      /usr/local/bin/gcreds -M DevOps -b "Ansible-{{ lookup('env', 'BUILD_TAG') }}" -acc "{{ info.0 }} -sr deploy"
+    fi
+    exit 0
+
+- name: launch ansible cloudformation
+  cloudformation:
+    stack_name: "{{ item.stack_name }}"
+    state: "{{ item.state | default('present') }}"
+    region: "{{ info.1 }}"
+    disable_rollback: false
+    template_url: "{{ item.template_url }}"
+    profile: "Ansible-{{ lookup('env', 'BUILD_TAG') }}-{{ info.0 }}"
+    notification_arns: "arn:aws:sns:{{ info.1 }}:872277419998:CFNUpdateTopic"
+  args:
+    template_parameters: "{{ item.template_parameters }}"
+    tags:
+      MPCAWS_CICD_BUILDVERSION: "{{ cfn_build_version }}"
+      MPCAWS_CICD_DATE: "{{ lookup('pipe','date +%Y-%m-%d-%H-%M-%S') }}"
+      MPCAWS_CICD_COMMITER: "{{ cfn_commiter }}"
+      MPCAWS_CICD_INFO: "MPCAWS JENKINS PIPELINE"
+  register: stack_data
+
+- name: show stack outputs
+  debug: msg="Stack outputs are {{ inner_loop }}"
+  with_items:
+    - "{{ stack_data }}"
+  loop_control:
+    loop_var: inner_loop
+  with_items:
+    - "{{ stack_data }}"
+  when: stack_data is defined
+
+- set_fact:
+    lambda_facts: "{{ lambda_facts|default([]) + [ { 'region': stack_data.stack_outputs[inner_loop].split(':')[3], 'fct_name': stack_data.stack_outputs[inner_loop].split(':')[6] } ] }}"
+  with_items: "{{ stack_data.stack_outputs.keys() }}"
+  loop_control:
+      loop_var: inner_loop
+  when:
+    - stack_data is defined
+    - inner_loop is defined
+    - inner_loop | search("FunctionArn")
+
+
+- name: display lambda fcts
+  debug:
+    var: lambda_facts
+  when: lambda_facts is defined
+
+# Set the version number to lambda function
+- name: "alias for function {{ inner_loop.fct_name }}"
+  lambda_alias:
+    region: "{{ inner_loop.region }}"
+    profile: "Ansible-{{ lookup('env', 'BUILD_TAG') }}-{{ info.0 }}"
+    state: "{{ state | default('present') }}"
+    function_name: "{{ inner_loop.fct_name }}"
+    name: "{{ lookup('env', 'BUILD_TAG').split('%2F')[-1] }}"
+    #version: "{{ lambda_version }}"
+    description: "Version {{ cfn_build_version }}"
+  with_items: "{{ lambda_facts }}"
+  loop_control:
+      loop_var: inner_loop
+  when: lambda_facts is defined
+
+
+- set_fact:
+    lambda_facts: []
+
+- name: gcreds deletes temporary credentials
+  shell: /usr/local/bin/gcreds -M DevOps -b "Ansible-{{ lookup('env', 'BUILD_TAG') }}" -acc "{{ info.0 }}" -d
