@@ -229,3 +229,32 @@ def annotate_l1(dataset, region=None):
             server_data['_backupstatus'] = 'no backup'
 
     return dataset
+
+
+def insert_dynamodb_record(region_list, table):
+    """
+        Inserts data items into DynamoDB table
+            - Partition Key:  Timestamp
+            - Sort Key: Spot Price
+    Args:
+        region_list (list): AWS region code list from which to gen price data
+
+    Returns:
+        dynamodb table object
+    """
+    sp = SpotPrices()
+    prices = sp.generate_pricedata(regions=region_list)
+    price_dicts = prices['SpotPriceHistory']
+
+    for item in price_dicts:
+        table.put_item(
+            Item={
+                    'AvailabilityZone': item['AvailabilityZone'],
+                    'InstanceType': item['InstanceType'],
+                    'ProductDescription': item['ProductDescription'],
+                    'SpotPrice': item['SpotPrice'],
+                    'Timestamp': item['Timestamp'].isoformat()
+            }
+        )
+        logger.info('Successfully inserted data item {}')
+    return table
