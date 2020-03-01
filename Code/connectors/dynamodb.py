@@ -7,6 +7,7 @@ from multiprocessing.dummy import Pool
 from boto3.dynamodb.types import TypeDeserializer
 from boto3.dynamodb.transform import TransformationInjector
 from pyaws.AWSLambda import read_env_variable
+from spotlib import UtcConversion
 
 
 # globals
@@ -244,6 +245,7 @@ def insert_dynamodb_record(region_list, table):
     """
     sp = SpotPrices()
     prices = sp.generate_pricedata(regions=region_list)
+    uc = UtcConversion(prices)      # converts datatime objects to str date times
     price_dicts = prices['SpotPriceHistory']
 
     for item in price_dicts:
@@ -253,8 +255,10 @@ def insert_dynamodb_record(region_list, table):
                     'InstanceType': item['InstanceType'],
                     'ProductDescription': item['ProductDescription'],
                     'SpotPrice': item['SpotPrice'],
-                    'Timestamp': item['Timestamp'].isoformat()
+                    'Timestamp': item['Timestamp']
             }
         )
-        logger.info('Successfully inserted data item {}')
+        logger.info(
+            'Successful put item for AZ {} at time {}'.format(item['AvailabilityZone'], item['Timestamp'])
+        )
     return table
