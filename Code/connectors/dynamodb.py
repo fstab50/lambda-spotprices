@@ -7,7 +7,7 @@ from multiprocessing.dummy import Pool
 from boto3.dynamodb.types import TypeDeserializer
 from boto3.dynamodb.transform import TransformationInjector
 from pyaws.AWSLambda import read_env_variable
-from spotlib import UtcConversion
+from spotlib import SpotPrices, UtcConversion
 
 
 # globals
@@ -25,6 +25,10 @@ DB_CLIENT = boto3.client('dynamodb', region_name=REGION)
 
 def standardize_datetime(dt):
     return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def utc_datetime(dt):
+    return dt.strftime('%Y-%m-%dT%H:%M:%SZ') 
 
 
 def datetimify_standard(s):
