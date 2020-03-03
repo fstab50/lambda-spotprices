@@ -6,7 +6,7 @@ from functools import lru_cache
 from multiprocessing.dummy import Pool
 from boto3.dynamodb.types import TypeDeserializer
 from boto3.dynamodb.transform import TransformationInjector
-from pyaws.AWSLambda import read_env_variable
+from pyaws.awslambda import read_env_variable
 from spotlib import SpotPrices, UtcConversion
 
 
@@ -245,35 +245,41 @@ class AssignRegion():
         return [x for x in self.regions if x in az][0]
 
 
-def insert_dynamodb_record(region_list, table):
-    """
-        Inserts data items into DynamoDB table
-            - Partition Key:  Timestamp
-            - Sort Key: Spot Price
-    Args:
-        region_list (list): AWS region code list from which to gen price data
+class DynamoDBPrices():
+    def __init__(self, table_name, start_date, end_date):
+        self.ar = AssignRegion()
+        self.sp = SpotPrices(start_dt=start_date, end_dt=end_date)
+        self.regions = self.ar.regions
+        self.dynamodb = boto3.resource('dynamodb')
+        self.table = self.dynamodb.Table(table_name)
 
-    Returns:
-        dynamodb table object
-    """
-    ar = AssignRegion()
-    sp = SpotPrices()
-    prices = sp.generate_pricedata(regions=region_list)
-    uc = UtcConversion(prices)      # converts datatime objects to str date times
-    price_dicts = prices['SpotPriceHistory']
+    def insert_dynamodb_record(self, regions=[]):
+        """
+            Inserts data items into DynamoDB table
+                - Partition Key:  Timestamp
+                - Sort Key: Spot Price
+        Args:
+            region_list (list): AWS region code list from which to gen price data
 
-    for item in price_dicts:
-        table.put_item(
-            Item={
-                    'RegionName':  ar.assign_region(item['AvailabilityZone']),
-                    'AvailabilityZone': item['AvailabilityZone'],
-                    'InstanceType': item['InstanceType'],
-                    'ProductDescription': item['ProductDescription'],
-                    'SpotPrice': item['SpotPrice'],
-                    'Timestamp': item['Timestamp']
-            }
-        )
-        logger.info(
-            'Successful put item for AZ {} at time {}'.format(item['AvailabilityZone'], item['Timestamp'])
-        )
-    return table
+        Returns:
+            dynamodb table object
+        """
+        prices = self.sp.generate_pricedata(regions=regions or self.regions)
+        uc = UtcConversion(prices)      # converts datatime objects to str date times
+        price_dicts = prices['SpotPriceHistory']
+
+        for item in price_dicts:
+            self.table.put_item(
+                Item={
+                        'RegionName':  self.ar.assign_region(item['AvailabilityZone']),
+                        'AvailabilityZone': item['AvailabilityZone'],
+                        'InstanceType': item['InstanceType'],
+                        'ProductDescription': item['ProductDescription'],
+                        'SpotPrice': item['SpotPrice'],
+                        'Timestamp': item['Timestamp']
+                }
+            )
+            logger.info(
+                'Successful put item for AZ {} at time {}'.format(item['AvailabilityZone'], item['Timestamp'])
+            )
+        return table
