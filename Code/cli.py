@@ -220,7 +220,7 @@ def lambda_handler():
 
     if (args.start and args.end) or args.duration:
         # set local region
-        args.region = local_awsregion(args.profile) if args.region == 'noregion' else args.region
+        args.region = read_env_variable('REGION', 'us-east-2')
 
         sp = SpotPrices(profile=args.profile)
 
