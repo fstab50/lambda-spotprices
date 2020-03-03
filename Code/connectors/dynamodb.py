@@ -28,7 +28,7 @@ def standardize_datetime(dt):
 
 
 def utc_datetime(dt):
-    return dt.strftime('%Y-%m-%dT%H:%M:%SZ') 
+    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
 
 def datetimify_standard(s):
@@ -97,7 +97,6 @@ def fetch_standardized(
     **kwargs):
     if any(x is None for x in (customer,backup_tool)):
         raise ValueError("customer and backup_tool must both be provided for the DynamoDB connector")
-
 
     query_str = "#x = :x"
 
@@ -236,6 +235,16 @@ def annotate_l1(dataset, region=None):
     return dataset
 
 
+class AssignRegion():
+    """Map AvailabilityZone to corresponding AWS region"""
+    def __init__(self):
+        self.client = boto3.client('ec2')
+        self.regions = [x['RegionName'] for x in self.client.describe_regions()['Regions']]
+
+    def assign_region(self, az):
+        return [x for x in self.regions if x in az][0]
+
+
 def insert_dynamodb_record(region_list, table):
     """
         Inserts data items into DynamoDB table
@@ -247,6 +256,7 @@ def insert_dynamodb_record(region_list, table):
     Returns:
         dynamodb table object
     """
+    ar = AssignRegion()
     sp = SpotPrices()
     prices = sp.generate_pricedata(regions=region_list)
     uc = UtcConversion(prices)      # converts datatime objects to str date times
@@ -255,6 +265,7 @@ def insert_dynamodb_record(region_list, table):
     for item in price_dicts:
         table.put_item(
             Item={
+                    'RegionName':  ar.assign_region(item['AvailabilityZone']),
                     'AvailabilityZone': item['AvailabilityZone'],
                     'InstanceType': item['InstanceType'],
                     'ProductDescription': item['ProductDescription'],
