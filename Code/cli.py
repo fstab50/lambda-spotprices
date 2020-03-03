@@ -1,6 +1,6 @@
 """
 
-ec2 spotprice retriever, GPL v3 License
+lambda EC2 spotprice retriever, GPL v3 License
 
 Copyright (c) 2018-2019 Blake Huber
 
@@ -169,71 +169,6 @@ def source_environment(env_variable):
     }.get(env_variable, None)
 
 
-def modules_location():
-    """Filsystem location of Python3 modules"""
-    return os.path.split(os.path.abspath(__file__))[0]
-
-
-def options(parser, help_menu=False):
-    """
-    Summary:
-        parse cli parameter options
-
-    Returns:
-        TYPE: argparse object, parser argument set
-
-    """
-    # default datetime objects when no custom datetimes supplied
-    start_dt, end_dt = default_endpoints()
-
-    parser.add_argument("-C", "--configure", dest='configure', action='store_true', required=False)
-    parser.add_argument("-d", "--debug", dest='debug', action='store_true', default=False, required=False)
-    parser.add_argument("-e", "--end", dest='end', nargs='*', default=end_dt, required=False)
-    parser.add_argument("-h", "--help", dest='help', action='store_true', required=False)
-    parser.add_argument("-p", "--profile", dest='profile', nargs=1, default='default', required=False)
-    parser.add_argument("-r", "--region", dest='region', nargs='*', default='noregion', required=False)
-    parser.add_argument("-D", "--duration-days", dest='duration', nargs='*', default=None, required=False)
-    parser.add_argument("-s", "--start", dest='start', nargs='*', default=start_dt, required=False)
-    parser.add_argument("-V", "--version", dest='version', action='store_true', required=False)
-    return parser.parse_known_args()
-
-
-def package_version():
-    """
-    Prints package version and requisite PACKAGE info
-    """
-    print(about.about_object)
-    sys.exit(exit_codes['EX_OK']['Code'])
-
-
-def precheck(debug, region):
-    """
-    Runtime Dependency Checks: postinstall artifacts, environment
-    """
-    if region == 'noregion':
-        return False
-    return True
-
-    try:
-
-        home_dir = os.expanduser('~')
-        config_file = os.path.join(home_dir, '.spotlib.json')
-
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f1:
-                defaults = json.loads(f1.read())
-        else:
-            from spotlib.defaults import defaults
-
-        _debug_output(home_dir, config_file)
-
-    except OSError:
-        fx = inspect.stack()[0][3]
-        logger.exception('{}: Problem installing user config files. Exit'.format(fx))
-        return False
-    return defaults
-
-
 def s3upload(bucket, s3object, key, profile='default'):
     """
         Streams object to S3 for long-term storage
@@ -278,34 +213,14 @@ def writeout_data(key, jsonobject, filename):
 
 
 
-def init():
+def lambda_handler():
     """
     Initialize spot price operations; process command line parameters
     """
-    parser = argparse.ArgumentParser(add_help=False)
 
-    try:
-
-        args, unknown = options(parser)
-
-    except Exception as e:
-        help_menu()
-        stdout_message(str(e), 'ERROR')
-        sys.exit(exit_codes['E_BADARG']['Code'])
-
-    if len(sys.argv) == 1 or args.help:
-        help_menu()
-        sys.exit(exit_codes['EX_OK']['Code'])
-
-    elif args.version:
-        package_version()
-
-    elif (args.start and args.end) or args.duration:
+    if (args.start and args.end) or args.duration:
         # set local region
         args.region = local_awsregion(args.profile) if args.region == 'noregion' else args.region
-
-        # validate prerun conditions
-        defaults = precheck(args.debug, args.region)
 
         sp = SpotPrices(profile=args.profile)
 

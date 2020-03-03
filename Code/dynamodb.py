@@ -7,6 +7,7 @@ from functools import lru_cache
 from multiprocessing.dummy import Pool
 from botocore.exceptions import ClientError
 from pyaws.awslambda import read_env_variable
+from libtools.js import export_iterobject
 from libtools import logd
 from spotlib import SpotPrices, UtcConversion
 
@@ -84,7 +85,7 @@ class DynamoDBPrices():
         self.dynamodb = boto3.resource('dynamodb')
         self.table = self.dynamodb.Table(table_name)
 
-    def insert_dynamodb_record(self, regions=[]):
+    def load_pricedata(self, regions=[]):
         """
             Inserts data items into DynamoDB table
                 - Partition Key:  Timestamp
@@ -115,7 +116,6 @@ class DynamoDBPrices():
                     'Successful put item for AZ {} at time {}'.format(item['AvailabilityZone'], item['Timestamp'])
                 )
             except ClientError as e:
-                logger.info(f'Error: {e}\n\nPossible credential refresh, sleeping...\n')
-                sleep(10)
+                logger.info(f'Error inserting item {export_iterobject(item)}: \n\n{e}')
                 continue
         return table
