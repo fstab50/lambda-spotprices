@@ -14,15 +14,6 @@ from spotlib import SpotPrices, UtcConversion
 
 logger = logd.getLogger('1.0')
 
-# globals
-REGION = read_env_variable('REGION', default='eu-west-1')
-DB = boto3.resource('dynamodb', region_name=REGION)
-
-METADATA_TABLENAME = read_env_variable('METADATA_TABLENAME', default='MPCAWS_EC2_METADATA')
-METADATA_TABLE = DB.Table(METADATA_TABLENAME)
-
-DB_CLIENT = boto3.client('dynamodb', region_name=REGION)
-
 
 def standardize_datetime(dt):
     return dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -65,57 +56,3 @@ def get_data(partition_key, value, tableName, region=None):
         x['resource_region|hostname'].split('|')[-1]: x['instance_status']
         for x in data
     }
-
-
-class AssignRegion():
-    """Map AvailabilityZone to corresponding AWS region"""
-    def __init__(self):
-        self.client = boto3.client('ec2')
-        self.regions = [x['RegionName'] for x in self.client.describe_regions()['Regions']]
-
-    def assign_region(self, az):
-        return [x for x in self.regions if x in az][0]
-
-
-class DynamoDBPrices():
-    def __init__(self, table_name, start_date, end_date):
-        self.ar = AssignRegion()
-        self.sp = SpotPrices(start_dt=start_date, end_dt=end_date)
-        self.regions = self.ar.regions
-        self.dynamodb = boto3.resource('dynamodb')
-        self.table = self.dynamodb.Table(table_name)
-
-    def load_pricedata(self, regions=[]):
-        """
-            Inserts data items into DynamoDB table
-                - Partition Key:  Timestamp
-                - Sort Key: Spot Price
-        Args:
-            region_list (list): AWS region code list from which to gen price data
-
-        Returns:
-            dynamodb table object
-        """
-        prices = self.sp.generate_pricedata(regions=regions or self.regions)
-        uc = UtcConversion(prices)      # converts datatime objects to str date times
-        price_dicts = prices['SpotPriceHistory']
-
-        for item in price_dicts:
-            try:
-                self.table.put_item(
-                    Item={
-                            'RegionName':  self.ar.assign_region(item['AvailabilityZone']),
-                            'AvailabilityZone': item['AvailabilityZone'],
-                            'InstanceType': item['InstanceType'],
-                            'ProductDescription': item['ProductDescription'],
-                            'SpotPrice': item['SpotPrice'],
-                            'Timestamp': item['Timestamp']
-                    }
-                )
-                logger.info(
-                    'Successful put item for AZ {} at time {}'.format(item['AvailabilityZone'], item['Timestamp'])
-                )
-            except ClientError as e:
-                logger.info(f'Error inserting item {export_iterobject(item)}: \n\n{e}')
-                continue
-        return table

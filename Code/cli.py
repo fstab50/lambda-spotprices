@@ -32,13 +32,15 @@ import argparse
 import subprocess
 import boto3
 from botocore.exceptions import ClientError
+from spotlib import SpotPrices, UtcConversion
 from libtools import stdout_message
 from libtools.js import export_iterobject
-from spotlib import SpotPrices, UtcConversion
-from spotlib.help_menu import menu_body
-from spotlib import about, logger
-from spotlib.variables import acct, bdwt, bbc, bbl, bcy, btext, rst
+from libtools import logd
+from pyaws.awslambda import read_env_variable
+from _version import __version__
 
+
+logger = logd.getLogger('1.0')
 
 try:
     from libtools.oscodes_unix import exit_codes
@@ -66,6 +68,24 @@ def _debug_output(*args):
             print('Filename {}'.format(arg.strip(), 'lower'))
         elif str(arg):
             print('String {} = {}'.format(getattr(arg.strip(), 'title'), arg))
+
+
+def _get_regions():
+    client = boto3.client('ec2')
+    return [x['RegionName'] for x in client.describe_regions()['Regions']]
+
+
+def standardize_datetime(dt):
+    return dt.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def utc_datetime(dt):
+    return dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def datetimify_standard(s):
+    """Function to create timezone unaware string"""
+    return datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
 
 
 def default_endpoints(duration_days=1):
@@ -96,19 +116,6 @@ def format_pricefile(key):
     pricefile = bcy + key.split('/')[1] + rst
     delimiter = bdwt + '/' + rst
     return region + delimiter + pricefile
-
-
-def help_menu():
-    """Print help menu options"""
-    print(menu_body)
-
-
-def local_awsregion(profile):
-    """Determines AWS region code local to user"""
-    if os.environ.get('AWS_DEFAULT_REGION'):
-        return os.environ['AWS_DEFAULT_REGION']
-    cmd = 'aws configure get {}.region'.format(profile)
-    return subprocess.getoutput(cmd).strip()
 
 
 def summary_statistics(data, instances):
@@ -163,8 +170,8 @@ def source_environment(env_variable):
     Sources all environment variables
     """
     return {
-        'duration_days': read_env_variable('default_duration'),
-        'page_size': read_env_variable('page_size', 500),
+        'duration_days': read_env_variable('DEFAULT_DURATION'),
+        'page_size': read_env_variable('PAGE_SIZE', 700),
         'bucket': read_env_variable('S3_BUCKET', None)
     }.get(env_variable, None)
 
@@ -212,56 +219,104 @@ def writeout_data(key, jsonobject, filename):
         return False
 
 
+class AssignRegion():
+    """Map AvailabilityZone to corresponding AWS region"""
+    def __init__(self):
+        self.client = boto3.client('ec2')
+        self.regions = [x['RegionName'] for x in self.client.describe_regions()['Regions']]
+
+    def assign_region(self, az):
+        return [x for x in self.regions if x in az][0]
+
+
+class DynamoDBPrices():
+    def __init__(self, table_name, start_date, end_date):
+        self.ar = AssignRegion()
+        self.sp = SpotPrices(start_dt=start_date, end_dt=end_date)
+        self.regions = self.ar.regions
+        self.dynamodb = boto3.resource('dynamodb')
+        self.table = self.dynamodb.Table(table_name)
+
+    def load_pricedata(self, regions=[]):
+        """
+            Inserts data items into DynamoDB table
+                - Partition Key:  Timestamp
+                - Sort Key: Spot Price
+        Args:
+            region_list (list): AWS region code list from which to gen price data
+
+        Returns:
+            dynamodb table object
+        """
+        prices = self.sp.generate_pricedata(regions=regions or self.regions)
+        uc = UtcConversion(prices)      # converts datatime objects to str date times
+        price_dicts = prices['SpotPriceHistory']
+
+        for item in price_dicts:
+            try:
+                self.table.put_item(
+                    Item={
+                            'RegionName':  self.ar.assign_region(item['AvailabilityZone']),
+                            'AvailabilityZone': item['AvailabilityZone'],
+                            'InstanceType': item['InstanceType'],
+                            'ProductDescription': item['ProductDescription'],
+                            'SpotPrice': item['SpotPrice'],
+                            'Timestamp': item['Timestamp']
+                    }
+                )
+                logger.info(
+                    'Successful put item for AZ {} at time {}'.format(item['AvailabilityZone'], item['Timestamp'])
+                )
+            except ClientError as e:
+                logger.info(f'Error inserting item {export_iterobject(item)}: \n\n{e}')
+                continue
+        return prices
+
 
 def lambda_handler():
     """
     Initialize spot price operations; process command line parameters
     """
+    environment_dict = source_environment()
 
-    if (args.start and args.end) or args.duration:
-        # set local region
-        args.region = read_env_variable('REGION', 'us-east-2')
+    # create dt object start, end datetimes
+    start, end = default_endpoints()
 
-        sp = SpotPrices(profile=args.profile)
+    # set local region, dynamoDB table
+    REGION = read_env_variable('REGION', 'us-east-2')
+    TABLE = read_env_variable('DYNAMODB_TABLE', 'PriceData')
 
-        if args.duration and isinstance(int(args.duration[0]), int):
-            start, end = sp.set_endpoints(duration=int(args.duration[0]))
-        else:
-            start, end = sp.set_endpoints(args.start, args.end)
+    db = DynamoDBPrices(table_name=TABLE, start_date=start, end_date=end)
 
-        # global container for ec2 instance size types
-        instance_sizes = []
+    for region in _get_regions():
+        # log status
+        logger.info('Retrieving & storing spot prices from region {}'.format(region))
+        # retrieve spot data, insert into dynamodb
+        prices = db.load_pricedata(regions=[region])
 
-        for region in args.region:
+        fname = '_'.join(
+                    [
+                        start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        end.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        'all-instance-spot-prices.json'
+                    ]
+                )
 
-            fname = '_'.join(
-                        [
-                            start.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                            end.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                            'all-instance-spot-prices.json'
-                        ]
-                    )
+        # write to file on local filesystem
+        key = os.path.join(region, fname)
+        os.makedirs(region) if not os.path.exists(region) else True
+        _completed = export_iterobject(prices, key)
 
-            prices = sp.generate_pricedata(regions=[region])
+        # log status
+        tab = '\t'.expandtabs(13)
+        fkey = format_pricefile(key)
+        success = f'Wrote {fkey}\n{tab}successfully to local filesystem'
+        failure = f'Problem writing {fkey} to local filesystem'
+        stdout_message(success, prefix='OK') if _completed else stdout_message(failure, prefix='WARN')
 
-            # conversion of datetime obj => utc strings
-            uc = UtcConversion(prices)
-
-            # write to file on local filesystem
-            key = os.path.join(region, fname)
-            os.makedirs(region) if not os.path.exists(region) else True
-            _completed = export_iterobject(prices, key)
-
-            # log status
-            tab = '\t'.expandtabs(13)
-            fkey = format_pricefile(key)
-            success = f'Wrote {fkey}\n{tab}successfully to local filesystem'
-            failure = f'Problem writing {fkey} to local filesystem'
-            stdout_message(success, prefix='OK') if _completed else stdout_message(failure, prefix='WARN')
-
-            # build unique collection of instances for this region
-            regional_sizes = list(set([x['InstanceType'] for x in prices['SpotPriceHistory']]))
-            instance_sizes.extend(regional_sizes)
+        # build unique collection of instances for this region
+        regional_sizes = list(set([x['InstanceType'] for x in prices['SpotPriceHistory']]))
+        instance_sizes.extend(regional_sizes)
 
         # instance sizes across analyzed regions
         instance_sizes = list(set(instance_sizes))
@@ -269,14 +324,6 @@ def lambda_handler():
         key = 'instanceTypes'
         date = sp.end.strftime("%Y-%m-%d")
         return writeout_data(key, instance_sizes, date + '_spot-instanceTypes.json')
-
-    else:
-        stdout_message(
-            'Dependency check fail %s' % json.dumps(args, indent=4),
-            prefix='AUTH',
-            severity='WARNING'
-            )
-        sys.exit(exit_codes['E_DEPENDENCY']['Code'])
 
     failure = """ : Check of runtime parameters failed for unknown reason.
     Please ensure you have both read and write access to local filesystem. """
