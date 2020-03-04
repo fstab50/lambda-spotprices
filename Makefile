@@ -41,7 +41,6 @@ test: setup-venv   ## Execute unittests
 build: setup-venv    ## Build lambda zip archive
 	cd $(CUR_DIR)/Code && zip -r $(CUR_DIR)/dist/$(ZIPNAME) *.py ls
 	cd $(VENV_DIR)/lib/*/site-packages && zip -ur $(CUR_DIR)/dist/$(ZIPNAME) *
-	cd $(CUR_DIR)/s3 && cp * $(CUR_DIR)/dist/
 	cd $(CUR_DIR)/cloudformation && cp * $(CUR_DIR)/dist/
 	sed -i -e 's/\__MPCBUILDVERSION__/$(MPCBUILDVERSION)/' $(CUR_DIR)/dist/$(CFN_TEMPLATE)
 
