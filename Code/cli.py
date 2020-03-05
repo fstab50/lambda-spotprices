@@ -336,10 +336,6 @@ def lambda_handler():
     db3.start()
     db4.start()
 
-    while True:
-        pb_thread1.stop() if pb_thread1 else continue
-        pb_thread2.stop() if pb_thread2 else continue
-
     sys.exit(exit_codes['E_BADARG']['Code'])
 
     fname = '_'.join(
