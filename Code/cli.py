@@ -177,7 +177,7 @@ def source_environment(env_variable):
     }.get(env_variable, None)
 
 
-def s3upload(bucket, s3object, key, profile='default'):
+def s3upload(bucket, s3object, key):
     """
         Streams object to S3 for long-term storage
 
@@ -185,7 +185,7 @@ def s3upload(bucket, s3object, key, profile='default'):
         Success | Failure, TYPE: bool
     """
     try:
-        session = boto3.Session(profile_name=profile)
+        session = boto3.Session()
         s3client = session.client('s3')
         # dict --> str -->  bytes (utf-8 encoded)
         bcontainer = json.dumps(s3object, indent=4, default=str).encode('utf-8')
