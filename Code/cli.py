@@ -31,6 +31,7 @@ import inspect
 import argparse
 import subprocess
 import boto3
+import threading
 from botocore.exceptions import ClientError
 from spotlib import SpotPrices, UtcConversion
 from libtools import stdout_message
@@ -199,6 +200,24 @@ def s3upload(bucket, s3object, key, profile='default'):
     return True if str(statuscode).startswith('20') else False
 
 
+def split_list(mlist, n):
+    """
+    Summary.
+
+        splits a list into equal parts as allowed, given n segments
+
+    Args:
+        :mlist (list):  a single list containing multiple elements
+        :n (int):  Number of segments in which to split the list
+
+    Returns:
+        generator object
+
+    """
+    k, m = divmod(len(mlist), n)
+    return (mlist[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
+
 def writeout_data(key, jsonobject, filename):
     """
         Persists json data to local filesystem
@@ -237,7 +256,7 @@ class DynamoDBPrices():
         self.dynamodb = boto3.resource('dynamodb', region_name=region)
         self.table = self.dynamodb.Table(table_name)
 
-    def load_pricedata(self, regions=[]):
+    def load_pricedata(self, price_dicts):
         """
             Inserts data items into DynamoDB table
                 - Partition Key:  Timestamp
@@ -247,11 +266,8 @@ class DynamoDBPrices():
 
         Returns:
             dynamodb table object
-        """
-        prices = self.sp.generate_pricedata(regions=regions or self.regions)
-        uc = UtcConversion(prices)      # converts datatime objects to str date times
-        price_dicts = prices['SpotPriceHistory']
 
+        """
         for item in price_dicts:
             try:
                 self.table.put_item(
@@ -270,7 +286,7 @@ class DynamoDBPrices():
             except ClientError as e:
                 logger.info(f'Error inserting item {export_iterobject(item)}: \n\n{e}')
                 continue
-        return prices
+        return True
 
 
 def lambda_handler():
@@ -286,45 +302,61 @@ def lambda_handler():
     REGION = read_env_variable('REGION', 'us-east-2')
     TARGET_REGIONS = read_env_variable('TARGET_REGIONS').split(',')
     TABLE = read_env_variable('DYNAMODB_TABLE', 'PriceData')
+    sp = SpotPrices()
 
-    db = DynamoDBPrices(region=REGION, table_name=TABLE, start_date=start, end_date=end)
+    prices = sp.generate_pricedata(regions=TARGET_REGIONS)
+    uc = UtcConversion(prices)      # converts datatime objects to str date times
+    price_dicts = prices['SpotPriceHistory']
 
-    for region in TARGET_REGIONS:
-        # log status
-        logger.info('Retrieving & storing spot prices from region {}'.format(region))
-        # retrieve spot data, insert into dynamodb
-        prices = db.load_pricedata(regions=[region])
+    # divide price list into multiple parts for parallel processing
+    prices1, prices2 = split_list(price_dicts, 2)
 
-        fname = '_'.join(
-                    [
-                        start.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                        end.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                        'all-instance-spot-prices.json'
-                    ]
-                )
+    # prepare both thread facilities for dynamoDB insertion
+    db1 = DynamoDBPrices(region=REGION, table_name=TABLE, start_date=start, end_date=end)
+    db2 = DynamoDBPrices(region=REGION, table_name=TABLE, start_date=start, end_date=end)
 
-        # write to file on local filesystem
-        key = os.path.join(region, fname)
-        os.makedirs(region) if not os.path.exists(region) else True
-        _completed = export_iterobject(prices, key)
+    # retrieve spot data, insert into dynamodb
+    pb_thread1 = db1.load_pricedata(prices1)
+    pb_thread1.start()
+    pb_thread2 = db2.load_pricedata(prices2)
+    pb_thread2.start()
 
-        # log status
-        tab = '\t'.expandtabs(13)
-        fkey = format_pricefile(key)
-        success = f'Wrote {fkey}\n{tab}successfully to local filesystem'
-        failure = f'Problem writing {fkey} to local filesystem'
-        stdout_message(success, prefix='OK') if _completed else stdout_message(failure, prefix='WARN')
+    while True:
+        pb_thread1.stop() if pb_thread1 else continue
+        pb_thread2.stop() if pb_thread2 else continue
 
-        # build unique collection of instances for this region
-        regional_sizes = list(set([x['InstanceType'] for x in prices['SpotPriceHistory']]))
-        instance_sizes.extend(regional_sizes)
+    sys.exit(exit_codes['E_BADARG']['Code'])
 
-        # instance sizes across analyzed regions
-        instance_sizes = list(set(instance_sizes))
-        instance_sizes.sort()
-        key = 'instanceTypes'
-        date = sp.end.strftime("%Y-%m-%d")
-        return writeout_data(key, instance_sizes, date + '_spot-instanceTypes.json')
+    fname = '_'.join(
+                [
+                    start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    end.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    'all-instance-spot-prices.json'
+                ]
+            )
+
+    # write to file on local filesystem
+    key = os.path.join(region, fname)
+    os.makedirs(region) if not os.path.exists(region) else True
+    _completed = export_iterobject(prices, key)
+
+    # log status
+    tab = '\t'.expandtabs(13)
+    fkey = format_pricefile(key)
+    success = f'Wrote {fkey}\n{tab}successfully to local filesystem'
+    failure = f'Problem writing {fkey} to local filesystem'
+    stdout_message(success, prefix='OK') if _completed else stdout_message(failure, prefix='WARN')
+
+    # build unique collection of instances for this region
+    regional_sizes = list(set([x['InstanceType'] for x in prices['SpotPriceHistory']]))
+    instance_sizes.extend(regional_sizes)
+
+    # instance sizes across analyzed regions
+    instance_sizes = list(set(instance_sizes))
+    instance_sizes.sort()
+    key = 'instanceTypes'
+    date = sp.end.strftime("%Y-%m-%d")
+    return writeout_data(key, instance_sizes, date + '_spot-instanceTypes.json')
 
     failure = """ : Check of runtime parameters failed for unknown reason.
     Please ensure you have both read and write access to local filesystem. """
