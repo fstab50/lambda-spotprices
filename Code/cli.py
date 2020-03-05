@@ -341,9 +341,7 @@ def lambda_handler():
     db3.start()
     db4.start()
 
-    sys.exit(exit_codes['E_BADARG']['Code'])
-
-
+    # save raw data in Amazon S3, one file per region
     for region in TARGET_REGIONS:
 
         price_list = download_spotprice_data(region)
