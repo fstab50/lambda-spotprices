@@ -302,6 +302,13 @@ class DynamoDBPrices(threading.Thread):
         sys.stdout.flush()
 
 
+def download_spotprice_data(target_regions):
+    sp = SpotPrices()
+    prices = sp.generate_pricedata(regions=target_regions)
+    uc = UtcConversion(prices)      # converts datatime objects to str date times
+    return prices['SpotPriceHistory']
+
+
 def lambda_handler():
     """
     Initialize spot price operations; process command line parameters
@@ -315,14 +322,12 @@ def lambda_handler():
     REGION = read_env_variable('REGION', 'us-east-2')
     TARGET_REGIONS = read_env_variable('TARGET_REGIONS').split(',')
     TABLE = read_env_variable('DYNAMODB_TABLE', 'PriceData')
+    BUCKET = read_env_variable('S3_BUCKET')
 
-    sp = SpotPrices()
-    prices = sp.generate_pricedata(regions=TARGET_REGIONS)
-    uc = UtcConversion(prices)      # converts datatime objects to str date times
-    price_dicts = prices['SpotPriceHistory']
+    price_list = download_spotprice_data(TARGET_REGIONS)
 
     # divide price list into multiple parts for parallel processing
-    prices1, prices2, prices3, prices4 = split_list(price_dicts, 4)
+    prices1, prices2, prices3, prices4 = split_list(price_list, 4)
 
     # prepare both thread facilities for dynamoDB insertion
     db1 = DynamoDBPrices(region=REGION, table_name=TABLE, price_dicts=prices1, start_date=start, end_date=end)
@@ -338,36 +343,33 @@ def lambda_handler():
 
     sys.exit(exit_codes['E_BADARG']['Code'])
 
-    fname = '_'.join(
-                [
-                    start.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    end.strftime('%Y-%m-%dT%H:%M:%SZ'),
-                    'all-instance-spot-prices.json'
-                ]
-            )
 
-    # write to file on local filesystem
-    key = os.path.join(region, fname)
-    os.makedirs(region) if not os.path.exists(region) else True
-    _completed = export_iterobject(prices, key)
+    for region in TARGET_REGIONS:
 
-    # log status
-    tab = '\t'.expandtabs(13)
-    fkey = format_pricefile(key)
-    success = f'Wrote {fkey}\n{tab}successfully to local filesystem'
-    failure = f'Problem writing {fkey} to local filesystem'
-    stdout_message(success, prefix='OK') if _completed else stdout_message(failure, prefix='WARN')
+        price_list = download_spotprice_data(region)
 
-    # build unique collection of instances for this region
-    regional_sizes = list(set([x['InstanceType'] for x in prices['SpotPriceHistory']]))
-    instance_sizes.extend(regional_sizes)
+        fname = '_'.join(
+                    [
+                        start.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        end.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        'all-instance-spot-prices.json'
+                    ]
+                )
 
-    # instance sizes across analyzed regions
-    instance_sizes = list(set(instance_sizes))
-    instance_sizes.sort()
-    key = 'instanceTypes'
-    date = sp.end.strftime("%Y-%m-%d")
-    return writeout_data(key, instance_sizes, date + '_spot-instanceTypes.json')
+        # write to file on local filesystem
+        key = os.path.join(region, fname)
+        #os.makedirs(region) if not os.path.exists(region) else True
+        #_completed = export_iterobject({'SpotPriceHistory': price_list}, key)
+        s3upload(BUCKET, {'SpotPriceHistory': price_list}, key)
+        logger.info('Completed upload to Amazon S3 for region {}'.format(region))
+
+        # log status
+        tab = '\t'.expandtabs(13)
+        fkey = format_pricefile(key)
+        success = f'Wrote {fkey}\n{tab}successfully to local filesystem'
+        failure = f'Problem writing {fkey} to local filesystem'
+        stdout_message(success, prefix='OK') if _completed else stdout_message(failure, prefix='WARN')
+
 
     failure = """ : Check of runtime parameters failed for unknown reason.
     Please ensure you have both read and write access to local filesystem. """
