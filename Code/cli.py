@@ -302,9 +302,9 @@ class DynamoDBPrices(threading.Thread):
         sys.stdout.flush()
 
 
-def download_spotprice_data(target_regions):
+def download_spotprice_data(region_list):
     sp = SpotPrices()
-    prices = sp.generate_pricedata(regions=target_regions)
+    prices = sp.generate_pricedata(regions=region_list)
     uc = UtcConversion(prices)      # converts datatime objects to str date times
     return prices['SpotPriceHistory']
 
@@ -344,7 +344,7 @@ def lambda_handler():
     # save raw data in Amazon S3, one file per region
     for region in TARGET_REGIONS:
 
-        price_list = download_spotprice_data(region)
+        price_list = download_spotprice_data([region])
 
         fname = '_'.join(
                     [
