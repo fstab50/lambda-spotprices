@@ -248,15 +248,22 @@ class AssignRegion():
         return [x for x in self.regions if x in az][0]
 
 
-class DynamoDBPrices():
-    def __init__(self, region, table_name, start_date, end_date):
+class DynamoDBPrices(threading.Thread):
+    def __init__(self, region, table_name, price_dicts, start_date, end_date):
+        super(DynamoDBPrices, self).__init__()
         self.ar = AssignRegion()
         self.sp = SpotPrices(start_dt=start_date, end_dt=end_date)
         self.regions = self.ar.regions
         self.dynamodb = boto3.resource('dynamodb', region_name=region)
         self.table = self.dynamodb.Table(table_name)
+        self.prices = price_dicts
+        self.running = False
 
-    def load_pricedata(self, price_dicts):
+    def start(self):
+        self.running = True
+        super(DynamoDBPrices, self).start()
+
+    def run(self):
         """
             Inserts data items into DynamoDB table
                 - Partition Key:  Timestamp
@@ -268,7 +275,7 @@ class DynamoDBPrices():
             dynamodb table object
 
         """
-        for item in price_dicts:
+        for item in self.prices:
             try:
                 self.table.put_item(
                     Item={
@@ -283,10 +290,16 @@ class DynamoDBPrices():
                 logger.info(
                     'Successful put item for AZ {} at time {}'.format(item['AvailabilityZone'], item['Timestamp'])
                 )
+                if not self.running:
+                    break
             except ClientError as e:
                 logger.info(f'Error inserting item {export_iterobject(item)}: \n\n{e}')
                 continue
-        return True
+
+    def stop(self):
+        self.running = False
+        self.join()  # wait for run() method to terminate
+        sys.stdout.flush()
 
 
 def lambda_handler():
@@ -302,24 +315,26 @@ def lambda_handler():
     REGION = read_env_variable('REGION', 'us-east-2')
     TARGET_REGIONS = read_env_variable('TARGET_REGIONS').split(',')
     TABLE = read_env_variable('DYNAMODB_TABLE', 'PriceData')
-    sp = SpotPrices()
 
+    sp = SpotPrices()
     prices = sp.generate_pricedata(regions=TARGET_REGIONS)
     uc = UtcConversion(prices)      # converts datatime objects to str date times
     price_dicts = prices['SpotPriceHistory']
 
     # divide price list into multiple parts for parallel processing
-    prices1, prices2 = split_list(price_dicts, 2)
+    prices1, prices2, prices3, prices4 = split_list(price_dicts, 4)
 
     # prepare both thread facilities for dynamoDB insertion
-    db1 = DynamoDBPrices(region=REGION, table_name=TABLE, start_date=start, end_date=end)
-    db2 = DynamoDBPrices(region=REGION, table_name=TABLE, start_date=start, end_date=end)
+    db1 = DynamoDBPrices(region=REGION, table_name=TABLE, price_dicts=prices1, start_date=start, end_date=end)
+    db2 = DynamoDBPrices(region=REGION, table_name=TABLE, price_dicts=prices2, start_date=start, end_date=end)
+    db3 = DynamoDBPrices(region=REGION, table_name=TABLE, price_dicts=prices3, start_date=start, end_date=end)
+    db4 = DynamoDBPrices(region=REGION, table_name=TABLE, price_dicts=prices4, start_date=start, end_date=end)
 
     # retrieve spot data, insert into dynamodb
-    pb_thread1 = db1.load_pricedata(prices1)
-    pb_thread1.start()
-    pb_thread2 = db2.load_pricedata(prices2)
-    pb_thread2.start()
+    db1.start()
+    db2.start()
+    db3.start()
+    db4.start()
 
     while True:
         pb_thread1.stop() if pb_thread1 else continue
