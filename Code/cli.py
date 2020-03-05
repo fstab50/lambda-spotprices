@@ -230,11 +230,11 @@ class AssignRegion():
 
 
 class DynamoDBPrices():
-    def __init__(self, table_name, start_date, end_date):
+    def __init__(self, region, table_name, start_date, end_date):
         self.ar = AssignRegion()
         self.sp = SpotPrices(start_dt=start_date, end_dt=end_date)
         self.regions = self.ar.regions
-        self.dynamodb = boto3.resource('dynamodb')
+        self.dynamodb = boto3.resource('dynamodb', region_name=region)
         self.table = self.dynamodb.Table(table_name)
 
     def load_pricedata(self, regions=[]):
@@ -284,11 +284,12 @@ def lambda_handler():
 
     # set local region, dynamoDB table
     REGION = read_env_variable('REGION', 'us-east-2')
+    TARGET_REGIONS = read_env_variable('TARGET_REGIONS').split(',')
     TABLE = read_env_variable('DYNAMODB_TABLE', 'PriceData')
 
-    db = DynamoDBPrices(table_name=TABLE, start_date=start, end_date=end)
+    db = DynamoDBPrices(region=REGION, table_name=TABLE, start_date=start, end_date=end)
 
-    for region in _get_regions():
+    for region in TARGET_REGIONS:
         # log status
         logger.info('Retrieving & storing spot prices from region {}'.format(region))
         # retrieve spot data, insert into dynamodb
