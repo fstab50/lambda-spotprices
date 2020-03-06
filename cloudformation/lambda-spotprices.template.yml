@@ -79,13 +79,6 @@ Parameters:
     Description: 'Specify the region where DyanamoDB database resource resides with
                   which this function will communicate'
     Type: String
-  DynamoDBIntegration:
-    AllowedValues:
-        - 'true'
-        - 'false'
-    Default: 'false'
-    Description: Enable integration with DynamoDB in shared services account
-    Type: String
   DynamoDBTable:
     Default: 'PriceData'
     Description: Name of the DyanamoDB database table this function will access
@@ -167,7 +160,6 @@ Metadata:
     - Label:
         default: DynamoDB Integration Settings
       Parameters:
-          - DynamoDBIntegration
           - DynamoDBRegion
           - DynamoDBRole
           - DynamoDBTable
@@ -185,8 +177,6 @@ Metadata:
           default: SNS Report Delivery Topic
       DebugMode:
           default: Debug Flag (Boolean)
-      DynamoDBIntegration:
-          default: Enable DynamoDB (Boolean)
       DynamoDBRegion:
           default: DynamoDB Location (region code)
       DynamoDBRole:
@@ -240,7 +230,7 @@ Resources:
           - { RegionCode: !Ref "AWS::Region", env: !Ref Environment}
         S3Key: Code/lambda-spotprices/spotprices-codebase.zip
       Description: Lambda Function for database loading of EC2 Metadata
-      FunctionName: CFN-MPC-EC2-Metadata
+      FunctionName: EC2-SpotPrice-Retriever
       Handler: index.lambda_handler
       Role:
         Fn::GetAtt:
@@ -251,23 +241,24 @@ Resources:
         Variables:
             DEFAULT_REGION: !Ref "AWS::Region"
             SNS_TOPIC_ARN: !Ref NotificationTopicArn
-            S3_WEB_REPORT_BUCKET: !Join ['', ["s3-", !Ref "AWS::Region", "-mpc-reports-", !Ref Environment]]
-            DYNAMODB_INTEGRATION: !Ref DynamoDBIntegration
+            S3_BUCKET: !Join ['', ["s3-", !Ref "AWS::Region", "-spotprices-daily"]]
+            TARGET_REGIONS: !Join [',', ["ap-east-1", "ap-northeast-1", "ap-northeast-2", "ap-northeast-3", "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ca-central-1"]]
             DYNAMODB_AWS_REGION: !Ref DynamoDBRegion
             DYNAMODB_AWS_ROLE: !Ref DynamoDBRole
             DYNAMODB_AWS_ACCOUNT_NR: !Ref DynamoDBAccountNR
             DYNAMODB_TABLE: !Ref DynamoDBTable
             DYNAMODB_HASH_KEY: !Ref DynamoDBPartitionKey
+            DYNAMODB_RANGE_KEY: !Ref DynamoDBRangeKey
             DBUGMODE: !Ref DebugMode
       Runtime: python3.6
       Timeout: '900'
-      MemorySize: 320
+      MemorySize: 500
 
   ScheduledRuleDaily:
     Type: AWS::Events::Rule
     Condition: CreateResources
     Properties:
-      Name: EC2MetadataExtractionRule
+      Name: EC2PriceDataTriggerRule
       Description: rule trigger for lambda function gen security profile at the account level
       ScheduleExpression: cron(* 6 * * ? *)
       State: ENABLED
@@ -292,7 +283,7 @@ Resources:
     Type: AWS::IAM::Role
     Condition: CreateIAM
     Properties:
-      RoleName: SR-EC2PriceApi
+      RoleName: SR-EC2SpotPrice
       AssumeRolePolicyDocument:
         Statement:
         - Action:
@@ -306,10 +297,7 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess
         - arn:aws:iam::aws:policy/AWSCloudTrailReadOnlyAccess
-        - arn:aws:iam::aws:policy/IAMReadOnlyAccess
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        - arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess
-        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
       Policies:
         -
           PolicyName: S3ReadOnly
@@ -335,9 +323,9 @@ Resources:
                     - s3:GetObject
                     - s3:DeleteObject
                 Resource:
-                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "-mpc-reports", "-dev", "/*"]]
-                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "-mpc-reports", "-qa", "/*"]]
-                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "-mpc-reports", "-pr", "/*"]]
+                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily", "/*"]]
+                    - !Join ['', ["arn:aws:s3:::", "spot-history", "/*"]]
+                    - !Join ['', ["arn:aws:s3:::", "glacier-spot-history", "/*"]]
         -
           PolicyName: SnsPublish
           PolicyDocument:
