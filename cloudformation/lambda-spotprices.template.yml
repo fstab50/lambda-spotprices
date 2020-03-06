@@ -87,14 +87,14 @@ Parameters:
     MaxLength: 50
     AllowedPattern: ^[a-zA-Z0-9_]*$
   DynamoDBPartitionKey:
-    Default: 'Account ID'
+    Default: 'Timestamp'
     Description: Partition key of table denoted by DynamoDBTable parameter
     Type: String
     MinLength: 1
     MaxLength: 50
     AllowedPattern: ^[a-zA-Z0-9 ]*$
   DynamoDBRangeKey:
-    Default: 'publicationDate'
+    Default: 'SpotPrice'
     Description: Partition key of table denoted by DynamoDBTable parameter
     Type: String
     MinLength: 1
@@ -102,17 +102,17 @@ Parameters:
     AllowedPattern: ^[a-zA-Z0-9 ]*$
   EnableNotification:
     AllowedValues: [true, false]
-    Default: false
+    Default: true
     Description: 'Enable SNS Notifications'
     Type: String
   NotificationTopicArn:
     Description: 'SNS topic for for delivery of Security Baseline Reports (dev: 102512488663, prod: 872277419998)'
     Type: String
-    Default: 'arn:aws:sns:eu-west-1:102512488663:SNSDevTopic'
+    Default: 'arn:aws:sns:us-east-2:716415911659:us-east-2-admin'
     AllowedValues:
-      - 'arn:aws:sns:eu-west-1:102512488663:SNSDevTopic'
-      - 'arn:aws:sns:eu-west-1:872277419998:SNSOpsTopic'
-      - 'arn:aws:sns:eu-west-1:872277419998:SNGenericCWTopic'
+      - 'arn:aws:sns:us-east-2:716415911659:us-east-2-admin'
+      - 'arn:aws:sns:us-east-2:716415911659:SNSOpsTopic'
+      - 'arn:aws:sns:us-east-2:716415911659:SNSDevTopic'
   DebugMode:
     AllowedValues: [true, false]
     Default: false
@@ -339,8 +339,8 @@ Resources:
                     - dynamodb:DescribeTableReplicaAutoScaling
                     - dynamodb:GetRecords
                 Resource:
-                    - !Join ['', ["arn:aws:dynamodb:::", "table/PriceData"]]
-                    - !Join ['', ["arn:aws:dynamodb:::", "table/PriceData", "/*"]]
+                    - !Join ['', ["arn:aws:dynamodb:::", "table/", !Ref DynamoDBTable]]
+                    - !Join ['', ["arn:aws:dynamodb:::", "table/", !Ref DynamoDBTable, "/*"]]
         -
           PolicyName: SnsPublish
           PolicyDocument:
