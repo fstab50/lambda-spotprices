@@ -324,6 +324,13 @@ def lambda_handler():
     TABLE = read_env_variable('DYNAMODB_TABLE', 'PriceData')
     BUCKET = read_env_variable('S3_BUCKET')
 
+    # log status
+    logger.info('Environment variable status:')
+    logger.info('REGION: {}'.format(REGION))
+    logger.info('TARGET_REGIONS: {}'.format(TARGET_REGIONS))
+    logger.info('TABLAKE: {}'.format(TABLE))
+    logger.info('BUCKET: {}'.format(BUCKET))
+
     price_list = download_spotprice_data(TARGET_REGIONS)
 
     # divide price list into multiple parts for parallel processing
