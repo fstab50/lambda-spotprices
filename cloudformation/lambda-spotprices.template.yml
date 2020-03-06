@@ -56,7 +56,7 @@ Parameters:
         - 'us-east-2'
         - 'us-west-1'
         - 'us-west-2'
-    Default: 'eu-west-1'
+    Default: 'us-east-2'
     Description: Specify the main ("home" region) in which IAM resources will be deployed first
     Type: String
   DynamoDBRegion:
@@ -75,7 +75,7 @@ Parameters:
         - 'us-east-2'
         - 'us-west-1'
         - 'us-west-2'
-    Default: 'eu-west-1'
+    Default: 'us-east-2'
     Description: 'Specify the region where DyanamoDB database resource resides with
                   which this function will communicate'
     Type: String
@@ -87,7 +87,7 @@ Parameters:
     Description: Enable integration with DynamoDB in shared services account
     Type: String
   DynamoDBTable:
-    Default: 'MPCAWS_EC2_METADATA'
+    Default: 'PriceData'
     Description: Name of the DyanamoDB database table this function will access
     Type: String
     MinLength: 1
@@ -218,7 +218,7 @@ Conditions:
 #-------------------------------------------------------------------------------
 Mappings:
     EnvironmentMap:
-        '102512488663':
+        '716415911659':
             "Env": "dev"
         '935229214006':
             "Env": "qa"
@@ -236,9 +236,9 @@ Resources:
     Properties:
       Code:
         S3Bucket: !Sub
-          - s3-${RegionCode}-mpc-install-${env}
+          - s3-${RegionCode}-install-${env}
           - { RegionCode: !Ref "AWS::Region", env: !Ref Environment}
-        S3Key: Code/serverless-monitor/serverless-monitor-__MPCBUILDVERSION__.zip
+        S3Key: Code/lambda-spotprices/spotprices-codebase.zip
       Description: Lambda Function for database loading of EC2 Metadata
       FunctionName: CFN-MPC-EC2-Metadata
       Handler: index.lambda_handler
@@ -269,7 +269,7 @@ Resources:
     Properties:
       Name: EC2MetadataExtractionRule
       Description: rule trigger for lambda function gen security profile at the account level
-      ScheduleExpression: cron(10 4 * * ? *)
+      ScheduleExpression: cron(* 6 * * ? *)
       State: ENABLED
       Targets:
       - Arn:
