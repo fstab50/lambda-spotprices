@@ -319,7 +319,7 @@ def lambda_handler():
     start, end = default_endpoints()
 
     # set local region, dynamoDB table
-    REGION = read_env_variable('REGION', 'us-east-2')
+    REGION = read_env_variable('DEFAULT_REGION', 'us-east-2')
     TARGET_REGIONS = read_env_variable('TARGET_REGIONS').split(',')
     TABLE = read_env_variable('DYNAMODB_TABLE', 'PriceData')
     BUCKET = read_env_variable('S3_BUCKET')
@@ -340,6 +340,12 @@ def lambda_handler():
     db2.start()
     db3.start()
     db4.start()
+
+    # need to join, concurrent end to all threads
+    db1.join()
+    db2.join()
+    db3.join()
+    db4.join()
 
     # save raw data in Amazon S3, one file per region
     for region in TARGET_REGIONS:
