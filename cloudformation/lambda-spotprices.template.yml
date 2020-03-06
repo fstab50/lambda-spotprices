@@ -223,7 +223,7 @@ Resources:
             SNS_TOPIC_ARN: !Ref NotificationTopicArn
             S3_BUCKET: !Join ['', ["s3-", !Ref "AWS::Region", "-spotprices-daily"]]
             TARGET_REGIONS: !Join [',', ["ap-east-1", "ap-northeast-1", "ap-northeast-2", "ap-northeast-3", "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ca-central-1"]]
-            DYNAMODB_AWS_REGION: !Ref DynamoDBRegion
+            DYNAMODB_REGION: !Ref DynamoDBRegion
             DYNAMODB_TABLE: !Ref DynamoDBTable
             DYNAMODB_HASH_KEY: !Ref DynamoDBPartitionKey
             DYNAMODB_RANGE_KEY: !Ref DynamoDBRangeKey
@@ -287,6 +287,9 @@ Resources:
                 Action:
                   - s3:GetBucketAcl
                   - s3:GetBucketLogging
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                  - s3:GetBucketPolicy",
                 Resource: "*"
         -
           PolicyName:  S3ReadWrite
@@ -300,10 +303,44 @@ Resources:
                     - s3:PutObjectAcl
                     - s3:GetObject
                     - s3:DeleteObject
+                    - s3:GetBucketAcl",
+                    - s3:ListMultipartUploadParts",
                 Resource:
                     - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily", "/*"]]
                     - !Join ['', ["arn:aws:s3:::", "spot-history", "/*"]]
                     - !Join ['', ["arn:aws:s3:::", "glacier-spot-history", "/*"]]
+        -
+          PolicyName:  DynamoDBExecution
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                    - dynamodb:BatchGetItem
+                    - dynamodb:BatchWriteItem
+                    - dynamodb:ConditionCheckItem
+                    - dynamodb:PutItem
+                    - dynamodb:UntagResource
+                    - cloudwatch:GetInsightRuleReport
+                    - dynamodb:DeleteItem
+                    - dynamodb:ListTagsOfResource
+                    - dynamodb:Scan
+                    - dynamodb:DescribeStream
+                    - dynamodb:Query
+                    - dynamodb:UpdateItem
+                    - dynamodb:DescribeTimeToLive
+                    - dynamodb:TagResource
+                    - dynamodb:DescribeTable
+                    - dynamodb:GetShardIterator
+                    - dynamodb:GetItem
+                    - dynamodb:DescribeContinuousBackups
+                    - dynamodb:UpdateTable
+                    - dynamodb:DescribeTableReplicaAutoScaling
+                    - dynamodb:GetRecords
+                Resource:
+                    - !Join ['', ["arn:aws:dynamodb:::", "table/PriceData"]]
+                    - !Join ['', ["arn:aws:dynamodb:::", "table/PriceData", "/*"]]
         -
           PolicyName: SnsPublish
           PolicyDocument:
