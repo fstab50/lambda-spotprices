@@ -36,12 +36,12 @@ from botocore.exceptions import ClientError
 from spotlib import SpotPrices, UtcConversion
 from libtools import stdout_message
 from libtools.js import export_iterobject
-from libtools import logd
 from pyaws.awslambda import read_env_variable
+import loggers
 from _version import __version__
 
 
-logger = logd.getLogger('1.0')
+logger = loggers.getLogger(__version__)
 
 try:
     from libtools.oscodes_unix import exit_codes

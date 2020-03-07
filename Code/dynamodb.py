@@ -8,11 +8,11 @@ from multiprocessing.dummy import Pool
 from botocore.exceptions import ClientError
 from pyaws.awslambda import read_env_variable
 from libtools.js import export_iterobject
-from libtools import logd
 from spotlib import SpotPrices, UtcConversion
+import loggers
+from _version import __version__
 
-
-logger = logd.getLogger('1.0')
+logger = loggers.getLogger(__version__)
 
 
 def standardize_datetime(dt):
