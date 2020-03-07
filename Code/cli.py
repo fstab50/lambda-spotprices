@@ -96,9 +96,9 @@ def default_endpoints(duration_days=1):
 
 def format_pricefile(key):
     """Adds path delimiter and color formatting to output artifacts"""
-    region = bcy + key.split('/')[0] + rst
-    pricefile = bcy + key.split('/')[1] + rst
-    delimiter = bdwt + '/' + rst
+    region = key.split('/')[0]
+    pricefile = key.split('/')[1]
+    delimiter = '/'
     return region + delimiter + pricefile
 
 
@@ -212,11 +212,11 @@ def writeout_data(key, jsonobject, filename):
     tab = '\t'.expandtabs(13)
 
     if export_iterobject({key: jsonobject}, filename):
-        success = f'Wrote {bcy + filename + rst}\n{tab}successfully to local filesystem'
+        success = f'Wrote {filename}\n{tab}successfully to local filesystem'
         logger.info(success)
         return True
     else:
-        failure = f'Problem writing {bcy + filename + rst} to local filesystem'
+        failure = f'Problem writing {filename} to local filesystem'
         logger.warning(failure)
         return False
 
@@ -325,7 +325,7 @@ def lambda_handler(event, context):
     logger.info('TARGET_REGIONS: {}'.format(TARGET_REGIONS))
     logger.info('TABLAKE: {}'.format(TABLE))
     logger.info('BUCKET: {}'.format(BUCKET))
-
+    """
     price_list = download_spotprice_data(TARGET_REGIONS)
 
     # divide price list into multiple parts for parallel processing
@@ -348,7 +348,7 @@ def lambda_handler(event, context):
     db2.join()
     db3.join()
     db4.join()
-
+    """
     # save raw data in Amazon S3, one file per region
     for region in TARGET_REGIONS:
 
