@@ -24,6 +24,13 @@ Description: '__MPCBUILDVERSION__ - MPC EC2 Price API Retrieval Lambda'
 #   PARAMETERS
 #-------------------------------------------------------------------------------
 Parameters:
+  ArchiveS3Bucket:
+    Default: 's3-us-east-2-spotprices-daily'
+    Description: Name of S3 Bucket storing spot price data archives after processing
+    Type: String
+    MinLength: 10
+    MaxLength: 50
+    AllowedPattern: ^[a-zA-Z0-9_]*$
   CloudTrailEnabled:
     AllowedValues:
         - 'Yes'
@@ -130,8 +137,9 @@ Metadata:
     - Label:
         default: General Settings
       Parameters:
-          - CloudTrailEnabled
           - HomeRegion
+          - ArchiveS3Bucket
+          - CloudTrailEnabled
     - Label:
         default: AWS Lambda Settings
       Parameters:
@@ -154,6 +162,8 @@ Metadata:
     ParameterLabels:
       HomeRegion:
           default: Main Resource Region
+      ArchiveS3Bucket:
+          default: Output Bucket
       CloudTrailEnabled:
           default: CloudTrail enabled (Y/N)
       Environment:
@@ -203,7 +213,7 @@ Mappings:
 #   RESOURCES
 #-------------------------------------------------------------------------------
 Resources:
-  FunctionEC2Metadata:
+  FunctionEC2PriceData:
     Type: AWS::Lambda::Function
     Condition: CreateResources
     Properties:
@@ -224,7 +234,7 @@ Resources:
         Variables:
             DEFAULT_REGION: !Ref "AWS::Region"
             SNS_TOPIC_ARN: !Ref NotificationTopicArn
-            S3_BUCKET: !Join ['', ["s3-", !Ref "AWS::Region", "-spotprices-daily"]]
+            S3_BUCKET: !Ref ArchiveS3Bucket
             TARGET_REGIONS: !Join [',', ["ap-east-1", "ap-northeast-1", "ap-northeast-2", "ap-northeast-3", "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ca-central-1"]]
             DYNAMODB_REGION: !Ref DynamoDBRegion
             DYNAMODB_TABLE: !Ref DynamoDBTable
@@ -239,9 +249,9 @@ Resources:
     Type: AWS::Events::Rule
     Condition: CreateResources
     Properties:
-      Name: EC2PriceDataTriggerRule
-      Description: rule trigger for lambda function gen security profile at the account level
-      ScheduleExpression: cron(* 6 * * ? *)
+      Name: EC2SpotPriceTriggerRule
+      Description: rule trigger for Lambda daily spot price retriever function (Time = GMT)
+      ScheduleExpression: cron(* 12 * * ? *)
       State: ENABLED
       Targets:
       - Arn:
@@ -365,7 +375,7 @@ Resources:
     Type: AWS::Lambda::Alias
     Properties:
       FunctionName:
-        Ref: FunctionEC2Metadata
+        Ref: FunctionEC2PriceData
       FunctionVersion:
         Fn::GetAtt:
         - StableVersion
@@ -377,7 +387,7 @@ Resources:
     Properties:
       Description: Stable version
       FunctionName:
-        Ref: FunctionEC2Metadata
+        Ref: FunctionEC2PriceData
 
 
 #-------------------------------------------------------------------------------
@@ -404,5 +414,5 @@ Outputs:
       Description: ARN of the Lambda function utilsed by EC2PriceApi
       Value:
         Fn::GetAtt:
-          - FunctionEC2Metadata
+          - FunctionEC2PriceData
           - Arn
