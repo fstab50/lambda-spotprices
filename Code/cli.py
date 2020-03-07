@@ -28,13 +28,11 @@ import sys
 import datetime
 import json
 import inspect
-import argparse
 import subprocess
 import boto3
 import threading
 from botocore.exceptions import ClientError
 from spotlib import SpotPrices, UtcConversion
-from libtools import stdout_message
 from libtools.js import export_iterobject
 from libtools.oscodes_unix import exit_codes
 from pyaws.awslambda import read_env_variable
@@ -216,11 +214,11 @@ def writeout_data(key, jsonobject, filename):
 
     if export_iterobject({key: jsonobject}, filename):
         success = f'Wrote {bcy + filename + rst}\n{tab}successfully to local filesystem'
-        stdout_message(success, prefix='OK')
+        logger.info(success)
         return True
     else:
         failure = f'Problem writing {bcy + filename + rst} to local filesystem'
-        stdout_message(failure, prefix='WARN')
+        logger.warning(failure)
         return False
 
 
@@ -279,7 +277,7 @@ class DynamoDBPrices(threading.Thread):
                 if not self.running:
                     break
             except ClientError as e:
-                logger.info(f'Error inserting item {export_iterobject(item)}: \n\n{e}')
+                logger.info(f'Error inserting item {item}: \n\n{e}')
                 continue
 
     def stop(self):
@@ -369,8 +367,6 @@ def lambda_handler(event, context):
 
         # write to file on local filesystem
         key = os.path.join(region, fname)
-        #os.makedirs(region) if not os.path.exists(region) else True
-        #_completed = export_iterobject({'SpotPriceHistory': price_list}, key)
         s3upload(BUCKET, {'SpotPriceHistory': price_list}, key)
         logger.info('Completed upload to Amazon S3 for region {}'.format(region))
 
@@ -379,7 +375,7 @@ def lambda_handler(event, context):
         fkey = format_pricefile(key)
         success = f'Wrote {fkey}\n{tab}successfully to local filesystem'
         failure = f'Problem writing {fkey} to local filesystem'
-        stdout_message(success, prefix='OK') if _completed else stdout_message(failure, prefix='WARN')
+        logger.info(success) if _completed else logger.warning(failure)
 
 
     failure = """ : Check of runtime parameters failed for unknown reason.
