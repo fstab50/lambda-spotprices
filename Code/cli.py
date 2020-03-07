@@ -41,7 +41,6 @@ from _version import __version__
 
 logger = loggers.getLogger(__version__)
 
-
 # globals
 module = os.path.basename(__file__)
 
