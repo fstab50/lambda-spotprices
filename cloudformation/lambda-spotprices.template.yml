@@ -217,9 +217,9 @@ Resources:
       Handler: index.lambda_handler
       Role:
         Fn::GetAtt:
-        - EC2PriceApiRole
+        - EC2SpotPriceRole
         - Arn
-      Role: !If [CreateIAM, !GetAtt "EC2PriceApiRole.Arn", !Join [":", ["arn:aws:iam:", !Ref "AWS::AccountId", "role/SR-EC2PriceApi"]]]
+      Role: !If [CreateIAM, !GetAtt "EC2SpotPriceRole.Arn", !Join [":", ["arn:aws:iam:", !Ref "AWS::AccountId", "role/SR-EC2SpotPrice"]]]
       Environment:
         Variables:
             DEFAULT_REGION: !Ref "AWS::Region"
@@ -260,7 +260,7 @@ Resources:
         - ScheduledRuleDaily
         - Arn
 
-  EC2PriceApiRole:
+  EC2SpotPriceRole:
     Type: AWS::IAM::Role
     Condition: CreateIAM
     Properties:
@@ -288,11 +288,8 @@ Resources:
               -
                 Effect: Allow
                 Action:
-                  - s3:GetBucketAcl
-                  - s3:GetBucketLogging
-                  - s3:ListBucket
-                  - s3:GetBucketLocation
-                  - s3:GetBucketPolicy",
+                  - s3:ListAllMyBuckets
+                  - s3:HeadBucket
                 Resource: "*"
         -
           PolicyName:  S3ReadWrite
@@ -302,15 +299,22 @@ Resources:
               -
                 Effect: Allow
                 Action:
+                    - s3:ListBucket
+                    - s3:GetBucketAcl
+                    - s3:GetBucketPolicy
+                    - s3:ListMultipartUploadParts
                     - s3:PutObject
+                    - s3:GetBucketLocation
                     - s3:PutObjectAcl
-                    - s3:GetObject
                     - s3:DeleteObject
-                    - s3:GetBucketAcl",
-                    - s3:ListMultipartUploadParts",
+                    - s3:GetObject
+                    - s3:GetBucketAcl
                 Resource:
+                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily"]]
                     - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily", "/*"]]
+                    - !Join ['', ["arn:aws:s3:::", "spot-history"]]
                     - !Join ['', ["arn:aws:s3:::", "spot-history", "/*"]]
+                    - !Join ['', ["arn:aws:s3:::", "glacier-spot-history"]]
                     - !Join ['', ["arn:aws:s3:::", "glacier-spot-history", "/*"]]
         -
           PolicyName:  DynamoDBExecution
