@@ -301,6 +301,16 @@ Resources:
                   - s3:HeadBucket
                 Resource: "*"
         -
+          PolicyName: EC2ReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - ec2:Describe*
+                Resource: "*"
+        -
           PolicyName:  S3ReadWrite
           PolicyDocument:
             Version: "2012-10-17"
