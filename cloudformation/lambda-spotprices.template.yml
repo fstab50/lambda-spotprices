@@ -1,7 +1,7 @@
 #-------------------------------------------------------------------------------
-#   SERVERLESS-MONITOR -- AWS Lambda
+#   LAMBDA-SPOTPRICES -- AWS Lambda
 #
-#      Version  1.6
+#      Version  0.5
 #      Author:  Blake Huber
 #      Reference Template:  Lambda, indiv accounts
 #      Instructions:
@@ -148,6 +148,7 @@ Metadata:
           - DynamoDBRegion
           - DynamoDBTable
           - DynamoDBPartitionKey
+          - DynamoDBRangeKey
 
     # --- labels --------------------------------------
     ParameterLabels:
@@ -167,6 +168,8 @@ Metadata:
           default: Database Table
       DynamoDBPartitionKey:
           default: Table Hash Key
+      DynamoDBRangeKey:
+          default: Table Sort (Range) Key
 
 
 #-------------------------------------------------------------------------------
