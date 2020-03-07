@@ -290,6 +290,16 @@ Resources:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         -
+          PolicyName: STSCheck
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity
+                Resource: "*"
+        -
           PolicyName: S3ReadOnly
           PolicyDocument:
             Version: "2012-10-17"
