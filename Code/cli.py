@@ -325,7 +325,7 @@ def lambda_handler(event, context):
     logger.info('TARGET_REGIONS: {}'.format(TARGET_REGIONS))
     logger.info('TABLAKE: {}'.format(TABLE))
     logger.info('BUCKET: {}'.format(BUCKET))
-    """
+    
     price_list = download_spotprice_data(TARGET_REGIONS)
 
     # divide price list into multiple parts for parallel processing
@@ -348,7 +348,7 @@ def lambda_handler(event, context):
     db2.join()
     db3.join()
     db4.join()
-    """
+
     # save raw data in Amazon S3, one file per region
     for region in TARGET_REGIONS:
 
