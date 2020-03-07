@@ -314,7 +314,7 @@ def lambda_handler(event, context):
     Initialize spot price operations; process command line parameters
     """
     # change to writeable filesystem
-    os.chdir(/tmp)
+    os.chdir('/tmp')
 
     environment_dict = source_environment()
 
