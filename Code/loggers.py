@@ -7,7 +7,7 @@ Example usage:
 <doctest autotag.loggers[2]> - 1.2.3 - [WARNING]: omg what is happening
 """
 import logging
-from autotag._version import __version__
+from _version import __version__
 import sys
 
 
