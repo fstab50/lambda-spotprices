@@ -20,9 +20,10 @@
 
 # global vars
 pkg=$(basename $0)
-ALIAS='PROD'                    # name of function alias to update
-REGION='eu-west-1'              # region in which cw event is located
-IAM_PROFILE='atos-aua1'           # profile in your local awscli config used to assume roles
+ALIAS='PROD'                        # name of function alias to update
+REGION='eu-west-1'                  # region in which cw event is located
+IAM_PROFILE='atos-aua1'             # profile in your local awscli config used to assume roles
+LAMBDA_NAME_KEYWORD='spotprice'     # identifying keyword in the name of the lambda function
 declare -a ARR_ACCOUNTS
 # error codes
 E_BADARG=8                      # exit code if bad input parameter
@@ -159,7 +160,7 @@ function scan_lambda_names(){
     ##
     echo "$(aws lambda list-functions \
         --profile $PROFILE \
-        --region $REGION | jq -r .Functions[].FunctionName | grep -i securitybaseline)"
+        --region $REGION | jq -r .Functions[].FunctionName | grep -i $LAMBDA_NAME_KEYWORD)"
 }
 
 #
