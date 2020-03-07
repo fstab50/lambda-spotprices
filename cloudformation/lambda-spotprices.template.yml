@@ -355,8 +355,7 @@ Resources:
                     - dynamodb:DescribeTableReplicaAutoScaling
                     - dynamodb:GetRecords
                 Resource:
-                    - !Join ['', ["arn:aws:dynamodb:::", "table/", !Ref DynamoDBTable]]
-                    - !Join ['', ["arn:aws:dynamodb:::", "table/", !Ref DynamoDBTable, "/*"]]
+                    - !Join ['', ["arn:aws:dynamodb:us-east-2:716415911659:", "table/", !Ref DynamoDBTable]]
         -
           PolicyName: SnsPublish
           PolicyDocument:
