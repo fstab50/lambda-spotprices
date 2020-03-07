@@ -30,7 +30,6 @@ Parameters:
     Type: String
     MinLength: 10
     MaxLength: 50
-    AllowedPattern: ^[a-zA-Z0-9_]*$
   CloudTrailEnabled:
     AllowedValues:
         - 'Yes'
@@ -224,7 +223,7 @@ Resources:
         S3Key: Code/lambda-spotprices/spotprices-codebase.zip
       Description: Lambda Function for database loading of EC2 Metadata
       FunctionName: EC2-SpotPrice-Retriever
-      Handler: index.lambda_handler
+      Handler: cli.lambda_handler
       Role:
         Fn::GetAtt:
         - EC2SpotPriceRole
