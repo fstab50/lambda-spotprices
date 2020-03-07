@@ -1,3 +1,4 @@
 boto3
-pyaws>=0.2.21
+libtools
+pyaws
 spotlib
