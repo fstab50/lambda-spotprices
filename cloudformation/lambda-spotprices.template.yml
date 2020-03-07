@@ -250,7 +250,7 @@ Resources:
     Properties:
       Name: EC2SpotPriceTriggerRule
       Description: rule trigger for Lambda daily spot price retriever function (Time = GMT)
-      ScheduleExpression: cron(* 12 * * ? *)
+      ScheduleExpression: cron(0 12 * * ? *)
       State: ENABLED
       Targets:
       - Arn:

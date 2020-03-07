@@ -310,8 +310,6 @@ def lambda_handler(event, context):
 
     set_tempdirectory()
 
-    environment_dict = source_environment()
-
     # create dt object start, end datetimes
     start, end = default_endpoints()
 
