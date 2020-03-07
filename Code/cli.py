@@ -364,7 +364,7 @@ def lambda_handler(event, context):
 
         # write to file on local filesystem
         key = os.path.join(region, fname)
-        s3upload(BUCKET, {'SpotPriceHistory': price_list}, key)
+        _completed = s3upload(BUCKET, {'SpotPriceHistory': price_list}, key)
         logger.info('Completed upload to Amazon S3 for region {}'.format(region))
 
         # log status
