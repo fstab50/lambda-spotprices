@@ -36,30 +36,16 @@ from botocore.exceptions import ClientError
 from spotlib import SpotPrices, UtcConversion
 from libtools import stdout_message
 from libtools.js import export_iterobject
+from libtools.oscodes_unix import exit_codes
 from pyaws.awslambda import read_env_variable
 import loggers
 from _version import __version__
 
-
 logger = loggers.getLogger(__version__)
-
-try:
-    from libtools.oscodes_unix import exit_codes
-    os_type = 'Linux'
-    user_home = os.getenv('HOME')
-    splitchar = '/'                                   # character for splitting paths (linux)
-
-except Exception:
-    from libtools.oscodes_win import exit_codes         # non-specific os-safe codes
-    os_type = 'Windows'
-    user_home = os.getenv('username')
-    splitchar = '\\'                                  # character for splitting paths (windows)
 
 
 # globals
-container = []
 module = os.path.basename(__file__)
-iloc = os.path.abspath(os.path.dirname(__file__))     # installed location of modules
 
 
 def _debug_output(*args):
@@ -309,12 +295,23 @@ def download_spotprice_data(region_list):
     return prices['SpotPriceHistory']
 
 
+def set_tempdirectory():
+    TMPDIR = '/tmp'
+    os.environ['TMPDIR'] = TMPDIR
+    os.environ['TMP'] = TMPDIR
+    os.environ['TEMP'] = TMPDIR
+    subprocess.getoutput('export TMPDIR=/tmp')
+
+
 def lambda_handler(event, context):
     """
     Initialize spot price operations; process command line parameters
     """
     # change to writeable filesystem
     os.chdir('/tmp')
+    logger.info('PWD is {}'.format(os.getcwd()))
+
+    set_tempdirectory()
 
     environment_dict = source_environment()
 
