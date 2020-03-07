@@ -309,7 +309,7 @@ def download_spotprice_data(region_list):
     return prices['SpotPriceHistory']
 
 
-def lambda_handler():
+def lambda_handler(event, context):
     """
     Initialize spot price operations; process command line parameters
     """
