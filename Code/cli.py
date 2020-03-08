@@ -32,7 +32,7 @@ import subprocess
 import boto3
 import threading
 from botocore.exceptions import ClientError
-from spotlib import SpotPrices, UtcConversion
+from spotlib.core import SpotPrices, UtcConversion
 from libtools.js import export_iterobject
 from libtools.oscodes_unix import exit_codes
 from pyaws.awslambda import read_env_variable
@@ -305,7 +305,7 @@ def lambda_handler(event, context):
     Initialize spot price operations; process command line parameters
     """
     # change to writeable filesystem
-    os.chdir('/tmp')
+    #os.chdir('/tmp')
     logger.info('PWD is {}'.format(os.getcwd()))
 
     set_tempdirectory()
@@ -325,11 +325,18 @@ def lambda_handler(event, context):
     logger.info('TARGET_REGIONS: {}'.format(TARGET_REGIONS))
     logger.info('TABLAKE: {}'.format(TABLE))
     logger.info('BUCKET: {}'.format(BUCKET))
-    
+
     price_list = download_spotprice_data(TARGET_REGIONS)
 
     # divide price list into multiple parts for parallel processing
     prices1, prices2, prices3, prices4 = split_list(price_list, 4)
+
+    logger.info('prices1 contains: {} elements'.format(len(prices1)))
+    logger.info('prices2 contains: {} elements'.format(len(prices2)))
+    logger.info('prices3 contains: {} elements'.format(len(prices3)))
+    logger.info('prices4 contains: {} elements'.format(len(prices4)))
+
+    return True
 
     # prepare both thread facilities for dynamoDB insertion
     db1 = DynamoDBPrices(region=REGION, table_name=TABLE, price_dicts=prices1, start_date=start, end_date=end)
