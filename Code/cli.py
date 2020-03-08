@@ -379,4 +379,4 @@ def lambda_handler(event, context):
         failure = f'Problem writing {fkey} to local filesystem'
         logger.info(success) if _completed else logger.warning(failure)
 
-    return sys.exit(exit_codes['EX_BADARG']['Code'])
+    return True
