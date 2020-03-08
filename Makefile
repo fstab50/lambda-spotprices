@@ -26,7 +26,9 @@ pre-build:   ## Remove residual build artifacts
 	mkdir $(CUR_DIR)/dist
 
 
-setup-venv: pre-build      ## Create and activiate python virtual env
+setup-venv: $(VENV_DIR)
+
+$(VENV_DIR): pre-build      ## Create and activiate python virtual env
 	$(PYTHON3_PATH) -m venv $(VENV_DIR)
 	. $(VENV_DIR)/bin/activate && $(PIP_CALL) install -U setuptools pip && \
 	$(PIP_CALL) install -r $(CUR_DIR)/requirements.txt || true
