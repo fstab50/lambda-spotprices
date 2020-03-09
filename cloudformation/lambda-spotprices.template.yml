@@ -349,15 +349,25 @@ Resources:
                 Effect: Allow
                 Action:
                     - s3:ListBucket
+                    - s3:ListMultipartUploadParts
                     - s3:GetBucketAcl
                     - s3:GetBucketPolicy
-                    - s3:ListMultipartUploadParts
-                    - s3:PutObject
+                    - s3:GetObject
                     - s3:GetBucketLocation
                     - s3:PutObjectAcl
+                    - s3:PutObject
                     - s3:DeleteObject
-                    - s3:GetObject
-                    - s3:GetBucketAcl
+                Resource:
+                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily"]]
+                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily", "/*"]]
+        -
+          PolicyName:  S3ArchiveData
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: Allow
+                Action:
                     - s3:PutAnalyticsConfiguration
                     - s3:PutAccelerateConfiguration
                     - s3:DeleteObjectVersion
@@ -369,6 +379,7 @@ Resources:
                     - s3:PutInventoryConfiguration
                     - s3:PutEncryptionConfiguration
                     - s3:ReplicateObject
+                    - s3:PutObject
                     - s3:PutBucketNotification
                     - s3:AbortMultipartUpload
                     - s3:PutBucketRequestPayment
@@ -376,11 +387,17 @@ Resources:
                     - s3:PutBucketLogging
                     - s3:PutBucketObjectLockConfiguration
                     - s3:PutLifecycleConfiguration
+                    - s3:DeleteObject
                     - s3:PutBucketVersioning
                     - s3:ReplicateDelete
                 Resource:
                     - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily"]]
                     - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "spotprices-daily", "/*"]]
+              -
+                Effect: Allow
+                Action:
+                  - s3:CreateJob
+                Resource: "*"
         -
           PolicyName:  DynamoDBExecution
           PolicyDocument:
@@ -425,6 +442,7 @@ Resources:
                 Effect: Allow
                 Action: sns:ListSubscriptionsByTopic
                 Resource: "*"
+
   ProductionAlias:
     Type: AWS::Lambda::Alias
     Properties:
