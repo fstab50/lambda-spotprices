@@ -258,6 +258,8 @@ class DynamoDBPrices(threading.Thread):
             dynamodb table object
 
         """
+        date = datetime.date.today()
+
         for item in self.prices:
             try:
                 self.table.put_item(
@@ -268,7 +270,9 @@ class DynamoDBPrices(threading.Thread):
                             'ProductDescription': item['ProductDescription'],
                             'SpotPrice': item['SpotPrice'],
                             'Timestamp': item['Timestamp'],
-                            'OnDemandPrice': {"USD": "0.0000000000", 'unit': 'Hrs'}
+                            'OnDemandPrice': {"USD": "0.0000000000"},
+                            'unit': 'Hrs',
+                            'RecordDate':  date.isoformat()
                     }
                 )
                 logger.info(
