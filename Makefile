@@ -17,7 +17,7 @@ DOC_PATH := $(CUR_DIR)/doc
 REQUIREMENT = $(CUR_DIR)/requirements.txt
 ZIPNAME = spotprices-codebase.zip
 S3KEY = Code/$(PROJECT)
-CFN_TEMPLATE = $(PROJECT).template.yml
+CFN_TEMPLATE = $(PROJECT).group1.template.yml
 LAMBDA_NAME = $(PROJECT)
 
 
