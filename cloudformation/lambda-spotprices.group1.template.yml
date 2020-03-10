@@ -358,8 +358,8 @@ Resources:
                     - s3:PutObject
                     - s3:DeleteObject
                 Resource:
-                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "-spotprices-daily"]]
-                    - !Join ['', ["arn:aws:s3:::", "s3-", !Ref "AWS::Region", "-spotprices-daily", "/*"]]
+                    - !Join ['', ["arn:aws:s3:::", !Ref ArchiveS3Bucket]]
+                    - !Join ['', ["arn:aws:s3:::", !Ref ArchiveS3Bucket, "/*"]]
         -
           PolicyName:  DynamoDBExecution
           PolicyDocument:
